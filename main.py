@@ -1,7 +1,7 @@
 import logging
 import asyncio
 import sys
-
+import handlers
 from loader import R, bot, dp
 
 async def main():
