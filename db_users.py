@@ -6,8 +6,8 @@ class DbUsers(DefaultInterface):
             CREATE TABLE IF NOT EXISTS users(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username VARCHAR(32) NOT NULL,
-                first_name VARCHAR(256),
-                last_name VARCHAR(256),
+                name VARCHAR(256),
+                surname VARCHAR(256),
                 telegram_user_id INTEGER,
                 phone_number INTEGER,
                 lvl VARCHAR(32)
