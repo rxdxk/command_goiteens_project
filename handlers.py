@@ -41,11 +41,9 @@ async def surname(message: types.Message, state: FSMContext):
 @R.message(Form.phone)
 async def phone(message: types.Message, state: FSMContext):
     phone = message.text
-
     if len(phone) == 10 and phone.isnumeric():
         await message.answer("Реєстрацію завершено!")
         await message.answer("Ти вже почав свій рух і скоро ти будеш говорити англіською як він:")
-
     else:
         await state.set_state(Form.phone)
         await message.answer("Введіть коректний номер")
