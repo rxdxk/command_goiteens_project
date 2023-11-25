@@ -2,7 +2,7 @@ import logging
 import asyncio
 import sys
 
-from loader import dp, bot
+from loader import R, bot, dp
 
 async def main():
     await dp.start_polling(bot)
