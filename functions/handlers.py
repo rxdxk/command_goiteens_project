@@ -5,7 +5,7 @@ from aiogram.fsm.context import FSMContext
 
 from .keyboards import *
 from db_api.db_users import *
-from loader import dp, R
+from loader import dp, R, db_users 
 
 R = Router()
 
@@ -72,9 +72,8 @@ async def phone_func(message: types.Message, state: FSMContext):
     if len(phone) == 10 and phone.isnumeric():
         await state.update_data(phone=phone)
         data  = await state.get_data()
-        db=DbUsers()
-
-        db.register_user(
+        
+        db_users.register_user(
             username=message.from_user.username,
             name=data.get("name"),
             surname=data.get("surname"),
