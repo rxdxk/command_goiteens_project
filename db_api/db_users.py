@@ -1,4 +1,4 @@
-from db import DefaultInterface
+from .db import DefaultInterface
 
 class DbUsers(DefaultInterface):
     def create_default_tables(self):
@@ -15,18 +15,16 @@ class DbUsers(DefaultInterface):
         """)
         return self.conn.commit()
     
-    def register_user(self, telegram_user_id: int, phone_number : int, username: str, first_name: str = None, last_name: str = None):
+    def register_user(self, telegram_user_id: int, phone_number : int, lvl : str, username: str, surname: str = None, name: str = None):
             self.cursor.execute("""
-                INSERT INTO users (telegram_user_id, phone_number, username, first_name, last_name)
-                VALUES (?, ?, ?, ?, ?)
-            """, (telegram_user_id, phone_number, username, first_name, last_name,))
+                INSERT INTO users (telegram_user_id, phone_number, lvl, username, surname, name)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (telegram_user_id, phone_number, lvl, username, surname, name, ))
             return self.conn.commit()
     
     def get_user_by_telegram_id(self, telegram_user_id: int):
         self.cursor.execute(f"""
-            SELECT *
-            FROM users
-            WHERE telegram_user_id = ?
+            SELECT * FROM users WHERE telegram_user_id = ?
         """, (telegram_user_id, ))
 
         return self.cursor.fetchone()

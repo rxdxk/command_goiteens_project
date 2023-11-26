@@ -1,8 +1,8 @@
 import logging
 import asyncio
 import sys
-import handlers
-from loader import R, bot, dp
+from functions import handlers
+from loader import bot, dp
 
 async def main():
     await dp.start_polling(bot)
