@@ -20,3 +20,5 @@ dp.include_router(R)
 
 bot_db = BotDb(DB_FILE)
 db_users = DbUsers()
+
+my_dict = {}

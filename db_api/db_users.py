@@ -28,10 +28,11 @@ class DbUsers(DefaultInterface):
         """, (telegram_user_id, ))
 
         return self.cursor.fetchone()
-    def update_user(self, telegram_id: int, lvl: int):
+    
+    def update_lvl(self, telegram_user_id: int, lvl: int):
         self.cursor.execute("""
-            UPDATE users SET lvl = ? WHERE telegram_id = ?
-        """, (lvl, telegram_id))
+            UPDATE users SET lvl = ? WHERE telegram_user_id = ?
+        """, (lvl, telegram_user_id))
         
     def delete_user(self, telegram_user_id: int):
         self.cursor.execute("""
