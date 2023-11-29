@@ -34,6 +34,18 @@ class DbUsers(DefaultInterface):
             UPDATE users SET lvl = ? WHERE telegram_user_id = ?
         """, (lvl, telegram_user_id))
         
+    def update_user(self, telegram_user_id: int, phone_number : int, lvl : str, username: str, surname: str = None, name: str = None):
+        self.cursor.execute("""
+            UPDATE users
+            SET username = ?,
+            name = ?,
+            surname = ?,
+            phone_number = ?,
+            lvl = ?
+        WHERE telegram_user_id = ?
+        """, (telegram_user_id, phone_number, lvl, username, surname, name, ))
+        return self.conn.commit()
+    
     def delete_user(self, telegram_user_id: int):
         self.cursor.execute("""
             DELETE FROM users WHERE telegram_user_id = ?

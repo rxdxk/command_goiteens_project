@@ -2,6 +2,8 @@ from aiogram import types,Router,F
 from aiogram.filters.command import Command, CommandObject
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
+from .translator import translate_eng as eng
+from .translator import translate_ukr as ukr
 from .tests import *
 from .keyboards import *
 from db_api.db_users import *
@@ -15,6 +17,14 @@ class Form(StatesGroup):
     name = State()
     surname = State()
     phone = State()
+
+class transl(StatesGroup):
+    choose = State()
+    eng = State()
+    ukr = State()
+    eng_answer = State()
+    ukr_answer = State()
+
 
 class ST(StatesGroup):
     q1 = State()
@@ -88,21 +98,15 @@ English Level: {user_info[6]}
     </b>
     """
 
-@R.message(Command("start"))
-async def start_func(message: types.Message, state: FSMContext):
-    await message.answer("Вітаємо тебе у боті для вивчення англіської🇬🇧")
-    await message.answer("Щоб почати тобі треба зареєструватись(натисни кнопку)🏁",reply_markup=reg_kb)
-    await state.set_state(Form.name)
-
 @R.message(Command("info"))
-async def start_func(message: types.Message, state: FSMContext):
+async def info_func(message: types.Message):
     await message.answer('''<b>Що може цей бот?</b>
     <i>-Визначити твій рівень англійської
     -Допомогти прокачати свої знання
     -Давати рекомендації щодо вивчення нових слів та правил
     -Давати завдання
     -Допомогти тобі провести час із користю</i>
-                            ''')
+                        ''')
 
 @R.message(Command("test"))
 async def reg_func(message: types.Message, state: FSMContext):
@@ -123,15 +127,21 @@ async def start_func(message: types.Message):
     else:
         await message.reply(f"User with your ID: <b>{telegram_user_id}</b> is not registred")
 
-    await message.answer("Вітаємо тебе у боті для вивчення англіської🇬🇧")
+@R.message(Command("deleteme"))
+async def delete_func(message: types.Message):
+    telegram_user_id = message.from_user.id
+    db_users.delete_user(telegram_user_id)
+    await message.answer("Ваш аккаунт видалено")
 
-    
+@R.message(Command("start"))
+async def start_func(message: types.Message, state: FSMContext):
+    await message.answer("Вітаємо тебе у боті для вивчення англіської🇬🇧")
+    await message.answer("Щоб почати напиши мені своє ім'я")
+    await state.set_state(Form.name)
 
 @R.message(Form.name)
 async def name_func(message: types.Message, state: FSMContext):
-  
     name = message.text
-
     if len(name) < 12  and len(name) >= 3 and name.isalpha():
         await message.answer(f"Hello {name}")
         await state.update_data(name=name)
@@ -158,11 +168,19 @@ async def surname_func(message: types.Message, state: FSMContext):
 async def phone_func(message: types.Message, state: FSMContext):
     phone = message.text
     global cur_ques
-    genius_num = ["1234567890","0987654321"]
-    if len(phone) == 10 and phone.isnumeric() and phone not in genius_num:
+    if len(phone) == 10 and phone.isnumeric():
         await state.update_data(phone=phone)
         data  = await state.get_data()
-        
+
+        db_users.update_user(
+            username=message.from_user.username,
+            name=data.get("name"),
+            surname=data.get("surname"),
+            lvl=None,
+            phone_number=data.get("phone"),
+            telegram_user_id=message.from_user.id
+        )
+
         db_users.register_user(
             username=message.from_user.username,
             name=data.get("name"),
@@ -184,6 +202,34 @@ async def phone_func(message: types.Message, state: FSMContext):
     else:
         await state.set_state(Form.phone)
         await message.answer("Введіть коректний номер")
+
+@R.message(Command("howdoisay"))
+async def translate(message: types.Message, state: FSMContext):
+    await message.answer("З якої мови бажаєш перкласти?",reply_markup=lang_kb)
+    await state.set_state(transl.choose)
+
+@R.message(transl.choose)
+async def choose(message: types.Message, state: FSMContext):
+    if message.text=='З англійської':
+        await message.answer("Напиши слово чи фразу англійською мовою яку хочеш перекласти", reply_markup=types.ReplyKeyboardRemove())
+        await state.set_state(transl.eng_answer)
+    elif message.text=='З української':
+        await message.answer("Напиши слово чи фразу українською мовою яку хочеш перекласти", reply_markup=types.ReplyKeyboardRemove())
+        await state.set_state(transl.ukr_answer)
+        
+@R.message(transl.eng_answer)
+async def translated_eng(message: types.Message, state: FSMContext):
+    text = str(message.text)
+    answer = eng(text)
+    await state.clear()
+    await message.answer(f"Ось перекладена фраза/слово: {answer}")
+    
+@R.message(transl.ukr_answer)
+async def translated_ukr(message: types.Message, state: FSMContext):
+    text = str(message.text)
+    answer = ukr(text)
+    await state.clear()
+    await message.answer(f"Ось перекладена фраза/слово: {answer}")
 
 @R.message(ST.q1)
 async def question1(message: types.Message, state: FSMContext):
@@ -348,7 +394,7 @@ async def question1(message: types.Message, state: FSMContext):
     if answer == True:
         correct_answers=0
         correct_answers+=1
-        await state.clear_state()
+        await state.clear()
         await message.answer("+")
         lvlok = lvl(correct_answers)
         db_users.update_lvl(telegram_user_id=telegram_user_id, lvl=lvlok)
@@ -358,7 +404,7 @@ async def question1(message: types.Message, state: FSMContext):
 
     else:
         db_users.update_lvl(telegram_user_id=telegram_user_id, lvl=lvlok)
-        await state.clear_state()
+        await state.clear()
         await message.answer("-")
         await message.answer(f"Ти набрав {correct_answers} вірних відповідей")
         await message.answer(f"Нашим дуже крутим аналізатором було вирішено ,що у тебе {lvlok}",reply_markup=types.ReplyKeyboardRemove())
