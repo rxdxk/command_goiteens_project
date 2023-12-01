@@ -9,17 +9,17 @@ class DbUsers(DefaultInterface):
                 name VARCHAR(256),
                 surname VARCHAR(256),
                 telegram_user_id INTEGER,
-                phone_number INTEGER,
+                phone INTEGER,
                 lvl VARCHAR(32)
             );
         """)
         return self.conn.commit()
     
-    def register_user(self, telegram_user_id: int, phone_number : int, lvl : str, username: str, surname: str = None, name: str = None):
+    def register_user(self, telegram_user_id : int, phone : int, lvl : str, username: str, surname: str , name: str):
             self.cursor.execute("""
-                INSERT INTO users (telegram_user_id, phone_number, lvl, username, surname, name)
+                INSERT INTO users (telegram_user_id, phone, lvl, username, surname, name)
                 VALUES (?, ?, ?, ?, ?, ?)
-            """, (telegram_user_id, phone_number, lvl, username, surname, name, ))
+            """, (telegram_user_id, phone, lvl, username, surname, name, ))
             return self.conn.commit()
     
     def get_user_by_telegram_id(self, telegram_user_id: int):
@@ -34,17 +34,16 @@ class DbUsers(DefaultInterface):
             UPDATE users SET lvl = ? WHERE telegram_user_id = ?
         """, (lvl, telegram_user_id))
         
-    def update_user(self, telegram_user_id: int, phone_number : int, lvl : str, username: str, surname: str = None, name: str = None):
+    def update_user(self, telegram_user_id: int, phone : int, lvl : str, username: str, surname: str, name: str):
         self.cursor.execute("""
             UPDATE users
             SET username = ?,
             name = ?,
             surname = ?,
-            phone_number = ?,
+            phone = ?,
             lvl = ?
         WHERE telegram_user_id = ?
-        """, (telegram_user_id, phone_number, lvl, username, surname, name, ))
-        return self.conn.commit()
+        """, (telegram_user_id, phone, lvl, username, surname, name, ))
     
     def delete_user(self, telegram_user_id: int):
         self.cursor.execute("""

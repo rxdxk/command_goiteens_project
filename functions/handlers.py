@@ -2,16 +2,15 @@ from aiogram import types,Router,F
 from aiogram.filters.command import Command, CommandObject
 from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
+from db_api.db_users import *
+from loader import dp, R, db_users
 from .translator import translate_eng as eng
 from .translator import translate_ukr as ukr
 from .tests import *
 from .keyboards import *
-from db_api.db_users import *
-from loader import dp, R, db_users
 from .learn import *
-import random
 from .states import *
-
+import random
 
 class Form(StatesGroup):
     name = State()
@@ -24,10 +23,6 @@ class transl(StatesGroup):
     ukr = State()
     eng_answer = State()
     ukr_answer = State()
-
-
-
-
         
 lvls = {"a1":questions_a1,
         "a2":questions_a2,
@@ -35,11 +30,8 @@ lvls = {"a1":questions_a1,
         "b2":questions_b2,
         "c1":questions_c1,
         "c2":questions_c2}
-        
 
 eng_levels = ["A1","A2","B1","B2","C1","C2"]
-
-
 
 def dynamic_reply_kb(options: list):
     return types.ReplyKeyboardMarkup(
@@ -47,8 +39,6 @@ def dynamic_reply_kb(options: list):
             [types.KeyboardButton(text=option) for option in options] 
         ], resize_keyboard=True
     )
-
-
 
 def question_generator(prev_number,curr_number, state_name, next_state,test_name):
     @dp.message(state_name, F.text.in_(test_name[prev_number]['options']))
@@ -61,7 +51,6 @@ def question_generator(prev_number,curr_number, state_name, next_state,test_name
                 {
                     "score":our_data['score'] + test_name[prev_number]["point"]
                 }
-            
             )
         our_data = await state.get_data()
         print(f"1111111111111:{our_data['score']}")
@@ -83,70 +72,60 @@ def init_questions():
         question_generator(1,2, AT.q2, AT.q3,x)
         question_generator(2,3, AT.q3, AT.final,x)
 
-
-
-
-
-   
-
-
-
-
-
 @dp.message(ST.final)
 async def final_score(message: types.Message, state: FSMContext):
-    global user_level
+    telegram_user_id = message.from_user.id
     our_data = await state.get_data()
-    print(our_data)
     right_ans = questions_start[6]["answer"]
     if message.text == right_ans:
         await message.answer(f"Ти відповів:{message.text}")
         await message.answer(f"Правильна відповідь:{right_ans}")
+        our_data['score'] += 1
+    print(our_data)
     score = our_data['score']
     await message.answer("Давай підрахуємо твої результати",reply_markup=types.ReplyKeyboardRemove())
     eng_levels.insert(0,"A0")
     for x in range(len(eng_levels)):
         if score == x:
             await message.answer(eng_levels[x])
-            user_level = eng_levels[x]
+            lvl = eng_levels[x]
+            db_users.update_lvl(telegram_user_id=telegram_user_id, lvl=lvl)
         await state.clear()
     eng_levels.pop(0)
-    our_data = await state.get_data()
     await state.set_state(TC.ch)
     await state.update_data(score=0)
     await message.answer("Для інформації про бота /info")
     await message.answer("Ось бібліотека тестів",reply_markup=dynamic_reply_kb(eng_levels))
 
-
 @dp.message(AT.final)
 async def final_score(message: types.Message, state: FSMContext):
+    telegram_user_id = message.from_user.id
     our_data = await state.get_data()
     print(our_data)
+    right_ans = our_data["name"]
+    if message.text == right_ans:
+        await message.answer(f"Ти відповів:{message.text}")
+        await message.answer(f"Правильна відповідь:{right_ans}")
+        our_data['score'] += 1
     score = our_data['score']
+    state_data=state.get_data()
+    lvl=state_data['lvl']
+    await db_users.update_lvl(telegram_user_id=telegram_user_id, lvl=lvl)
     await message.answer("Давай підрахуємо твої результати",reply_markup=types.ReplyKeyboardRemove())
     await message.answer(f"Ти набрав {score} з 3")
     await state.set_state(TC.ch)
     await state.update_data(score=0)
     await message.answer("Ось бібліотека тестів",reply_markup=dynamic_reply_kb(eng_levels))
 
-
-
-
-
-
-
-
-    
 def format_user_info_string(user_info: tuple):
         return f"""
     <b>
-    Username: {user_info[1]}
+Username: {user_info[1]}
 First Name: {user_info[2]}
 Last Name: {user_info[3]}
 Telegram ID: {user_info[4]}
 Phone Number: +380{user_info[5]}
 English Level: {user_info[6]}
-
     </b>
     """
 
@@ -163,8 +142,6 @@ async def info_func(message: types.Message):
     -Для прогресу /myprogress
     -Для навчання /learn</i>
                         ''')
-
-
 
 @dp.message(Command("myprogress"))
 async def progres_func(message: types.Message):
@@ -215,42 +192,59 @@ async def surname_func(message: types.Message, state: FSMContext):
 @dp.message(Form.phone)
 async def phone_func(message: types.Message, state: FSMContext):
     phone = message.text
-    global cur_ques
-    if len(phone) == 10 and phone.isnumeric():
-        await state.update_data(phone=phone)
-        data  = await state.get_data()
-
-        db_users.update_user(
-            username=message.from_user.username,
-            name=data.get("name"),
-            surname=data.get("surname"),
-            lvl=None,
-            phone_number=data.get("phone"),
-            telegram_user_id=message.from_user.id
-        )
-
-        db_users.register_user(
-            username=message.from_user.username,
-            name=data.get("name"),
-            surname=data.get("surname"),
-            lvl=None,
-            phone_number=data.get("phone"),
-            telegram_user_id=message.from_user.id
-        )
-
-        await message.answer("Реєстрацію завершено!")
-        await message.answer("Ти вже почав свій рух і скоро ти будеш говорити англіською як він:")
-        await message.answer("А зараз ми пропонуємо вам пройти короткий тест на ваш рівень англійської мови")
-        await state.update_data(score=0)
-        await message.answer(f"1 Питання:")
-        await message.answer(questions_start[1]["question"], reply_markup=dynamic_reply_kb(questions_start[1]["options"]))
-        await state.set_state(ST.q2)
-    else:
-        await state.set_state(Form.phone)
-        await message.answer("Введіть коректний номер")
+    telegram_user_id = message.from_user.id
+    user_info = db_users.get_user_by_telegram_id(telegram_user_id)
+    if user_info:
+        if len(phone) == 10 and phone.isnumeric():
+            state_data=await state.get_data()
+            name=state_data["name"]
+            surname=state_data["surname"]
+            db_users.update_user(
+                telegram_user_id=message.from_user.id,
+                username=message.from_user.username,
+                name=name,
+                surname=surname,
+                lvl=None,
+                phone=phone
+            )                
+            await message.answer("Реєстрацію завершено!")
+            await message.answer("Ти вже почав свій рух і скоро ти будеш говорити англіською як він:")
+            await message.answer("А зараз ми пропонуємо вам пройти короткий тест на ваш рівень англійської мови")
+            await state.update_data(score=0)
+            await message.answer(f"1 Питання:")
+            await message.answer(questions_start[1]["question"], reply_markup=dynamic_reply_kb(questions_start[1]["options"]))
+            await state.set_state(ST.q2)
+        else:
+            await state.set_state(Form.phone)
+            await message.answer("Введіть коректний номер")
+    else:   
+            if len(phone) == 10 and phone.isnumeric():
+                await state.update_data(phone=phone)
+                state_data=await state.get_data()
+                name=state_data["name"]
+                surname=state_data["surname"]
+                print(phone)
+                await db_users.register_user(
+                    username=message.from_user.username,
+                    name=name,
+                    surname=surname,
+                    lvl=None,
+                    phone=phone,
+                    telegram_user_id=message.from_user.id
+                )
+                await message.answer("Реєстрацію завершено!")
+                await message.answer("Ти вже почав свій рух і скоро ти будеш говорити англіською як він:")
+                await message.answer("А зараз ми пропонуємо вам пройти короткий тест на ваш рівень англійської мови")
+                await state.update_data(score=0)
+                await message.answer(f"1 Питання:")
+                await message.answer(questions_start[1]["question"], reply_markup=dynamic_reply_kb(questions_start[1]["options"]))
+                await state.set_state(ST.q2)
+            else:
+                await state.set_state(Form.phone)
+                await message.answer("Введіть коректний номер")
 
 @dp.message(Command("learn"))
-async def learn(message: types.Message, state: FSMContext):
+async def learn(message: types.Message):
     await message.answer(f"Ось тобі корисне відео:")
     await message.answer(f"{random.choice(links)}")
     await message.answer(f"Лови нове слово:")
@@ -285,7 +279,6 @@ async def translated_eng(message: types.Message, state: FSMContext):
     answer = eng(text)
     await state.clear()
     await message.answer(f"Ось перекладена фраза/слово: {answer}")
-
     
 @dp.message(transl.ukr_answer)
 async def translated_ukr(message: types.Message, state: FSMContext):
@@ -294,18 +287,14 @@ async def translated_ukr(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(f"Ось перекладена фраза/слово: {answer}")
 
-
-
 @dp.message(TC.ch)
 async def main_handler(message: types.Message,state: TC):
     user_ans = message.text #A1
     if user_ans in eng_levels:
+        await state.update_data(lvl=user_ans)
         await message.answer(f"Тест для рівня {user_ans}")
         await message.answer(f"1 Питання:")
         value = user_ans.lower() #a1
         if value in lvls:
             await message.answer(lvls[value][1]["question"], reply_markup=dynamic_reply_kb(lvls[value][1]["options"]))
         await state.set_state(AT.q2)
-
-   
-    

@@ -1,8 +1,5 @@
 from aiogram.fsm.state import StatesGroup, State
 
-
-
-
 class TC(StatesGroup):
     ch = State()
 
@@ -21,3 +18,4 @@ class AT(StatesGroup):
     q2 = State()
     q3 = State()
     final = State()
+    

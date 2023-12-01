@@ -14,4 +14,3 @@ def translate_ukr(text):
     data=outstr.extra_data
     out = data['translation'][0][0]
     return out
-

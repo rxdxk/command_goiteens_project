@@ -1,9 +1,7 @@
 import logging
 import asyncio
 import sys
-
 from functions import handlers
-
 from loader import bot, dp, bot_db, db_users
 from functions.handlers import init_questions
 
