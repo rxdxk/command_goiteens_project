@@ -5,12 +5,14 @@ import sys
 from functions import handlers
 
 from loader import bot, dp, bot_db, db_users
+from functions.handlers import init_questions
 
 @dp.startup()
 async def on_startup(dispatcher):
     bot_db.open()
     db_users.connect(bot_db)
     db_users.create_default_tables()
+    init_questions()
     logging.info("Bot has runned")
 
 @dp.shutdown()
