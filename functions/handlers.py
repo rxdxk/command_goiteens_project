@@ -8,9 +8,9 @@ from .tests import *
 from .keyboards import *
 from db_api.db_users import *
 from loader import dp, R, db_users
-
+from .learn import *
+import random
 R = Router()
-
 dp.include_router(R)
 
 class Form(StatesGroup):
@@ -25,6 +25,8 @@ class transl(StatesGroup):
     eng_answer = State()
     ukr_answer = State()
 
+class TC(StatesGroup):
+    ch = State()
 
 class ST(StatesGroup):
     q1 = State()
@@ -34,56 +36,111 @@ class ST(StatesGroup):
     q5 = State()
     q6 = State()
     q7 = State()
-    q8 = State()
+    final = State()
 
-correct_answers = 0
-lvlok = " "
+class AT(StatesGroup):
+    q1 = State()
+    q2 = State()
+    q3 = State()
+    final = State()
 
-def ques(current_ques):
-    a = questions[str(current_ques)]
-    txt = a["question"]
-    return txt
 
-def gen_keyb(num):
-    but = []
-    a = questions[str(num)] #1
-    b = a["options"] # "0": "goed",etc
-    for x in range(len(b)):
-        txt = b[f"{x}"]
-        but.append([types.KeyboardButton(text = f"{txt}")])
-        keyb  = types.ReplyKeyboardMarkup(keyboard=but) 
-    return keyb
+        
+LVLS = {"a1":questions_a1,
+        "a2":questions_a2,
+        "b1":questions_b1,
+        "b2":questions_b2,
+        "c1":questions_c1,
+        "c2":questions_c2}
+        
 
-def check_ans(current_ques,user_ans):
-    global correct_answers
-    a = questions[str(current_ques)] #1
-    answer = a["answer"]
-    print(answer)
-    if user_ans == answer:
-        correct_answers += 1
-        return True
-    else:
-        return False
+eng_levels = ["A1","A2","B1","B2","C1","C2"]
 
-def lvl(correct_answers):
-    if correct_answers == 1:
-        lvl = "A1"
-        return lvl
-    elif correct_answers == 2:
-        lvl  = "A2"
-        return lvl
-    elif correct_answers == 3:
-        lvl = "B1"
-        return lvl
-    elif correct_answers ==4:
-        lvl = "B2"
-        return lvl
-    elif correct_answers == 5:
-        lvl = "C1"
-        return lvl
-    elif correct_answers == 6:
-        lvl =" C2"
-        return lvl
+def dynamic_reply_kb(options: list):
+    return types.ReplyKeyboardMarkup(
+        keyboard = [
+            [types.KeyboardButton(text=option) for option in options] 
+        ], resize_keyboard=True
+    )
+
+
+
+def question_generator(prev_number,curr_number, state_name, next_state,test_name):
+    @dp.message(state_name, F.text.in_(test_name[prev_number]['options']))
+    async def questiongen(message: types.Message, state: FSMContext):
+        our_data = await state.get_data()
+        right_ans = test_name[prev_number]["answer"]
+        if message.text == right_ans:
+            await state.update_data(
+                {
+                    "score":our_data['score'] + test_name[prev_number]["point"]
+                }
+
+            )
+        
+        await message.answer(f"Відповідь зарахована")
+        await message.answer(f"Ти відповів:{message.text}")
+        await message.answer(f"Правильна відповідь:{right_ans}")
+        await message.answer(f"{curr_number} Питання:")
+        await message.answer(test_name[curr_number]["question"], reply_markup=dynamic_reply_kb(test_name[curr_number]["options"]))
+        await state.set_state(next_state)
+
+def init_questions():
+    question_generator(1, 2, ST.q2, ST.q3,questions_start)
+    question_generator(1, 2, ST.q2, ST.q3,questions_start)
+    question_generator(2, 3, ST.q3, ST.q4,questions_start)
+    question_generator(3, 4, ST.q4, ST.q5,questions_start)
+    question_generator(4, 5, ST.q5, ST.q6,questions_start)
+    question_generator(5, 6, ST.q6, ST.final,questions_start)
+    for x in LVLS.values():
+        question_generator(1,2, AT.q2, AT.q3,x)
+        question_generator(2,3, AT.q3, AT.final,x)
+
+
+
+
+
+   
+
+
+
+
+
+@R.message(ST.final)
+async def final_score(message: types.Message, state: FSMContext):
+    global user_level
+    our_data = await state.get_data()
+    score = our_data['score']
+    await message.answer("Давай підрахуємо твої результати",reply_markup=types.ReplyKeyboardRemove())
+    eng_levels = ["A0","A1","A2","B1","B2","C1","C2"]
+    for x in range(len(eng_levels)):
+        if score == x:
+            await message.answer(eng_levels[x])
+            user_level = eng_levels[x]
+        await state.clear()
+    await state.set_state(TC.ch)
+    eng_levels = ["A1","A2","B1","B2","C1","C2"]
+    await state.update_data(score=0)
+    await message.answer("Ось бібліотека тестів",reply_markup=dynamic_reply_kb(eng_levels))
+
+
+@R.message(AT.final)
+async def final_score(message: types.Message, state: FSMContext):
+    our_data = await state.get_data()
+    score = our_data['score']
+    await message.answer("Давай підрахуємо твої результати",reply_markup=types.ReplyKeyboardRemove())
+    await message.answer(f"Ти набрав {score} з 3")
+    await state.set_state(TC.ch)
+    await state.update_data(score=0)
+    await message.answer("Ось бібліотека тестів",reply_markup=dynamic_reply_kb(eng_levels))
+
+
+
+
+
+
+
+
     
 def format_user_info_string(user_info: tuple):
         return f"""
@@ -108,18 +165,10 @@ async def info_func(message: types.Message):
     -Допомогти тобі провести час із користю</i>
                         ''')
 
-@R.message(Command("test"))
-async def reg_func(message: types.Message, state: FSMContext):
-    global cur_ques
-    await message.answer("Натискай на відповіді які вважаєш правильними")
-    await state.set_state(ST.q1)
-    cur_ques = 1
-    keyb = gen_keyb(cur_ques)
-    txt = ques(cur_ques)
-    await message.answer(txt,reply_markup=keyb)
+
 
 @R.message(Command("myprogress"))
-async def start_func(message: types.Message):
+async def progres_func(message: types.Message):
     telegram_user_id = message.from_user.id
     user_info = db_users.get_user_by_telegram_id(telegram_user_id)
     if user_info:
@@ -155,7 +204,7 @@ async def name_func(message: types.Message, state: FSMContext):
 async def surname_func(message: types.Message, state: FSMContext):
     surname = message.text
 
-    if len(surname) < 20  and surname.isalpha() :
+    if len(surname) < 20  and surname.isalpha():
         await state.update_data(surname=surname)
         await state.set_state(Form.phone)
         await message.answer(f"Тепер введи свій номер телефону ,починаючи з +38")
@@ -193,15 +242,24 @@ async def phone_func(message: types.Message, state: FSMContext):
         await message.answer("Реєстрацію завершено!")
         await message.answer("Ти вже почав свій рух і скоро ти будеш говорити англіською як він:")
         await message.answer("А зараз ми пропонуємо вам пройти короткий тест на ваш рівень англійської мови")
-        cur_ques = 1
-        keyb = gen_keyb(cur_ques)
-        await state.set_state(ST.q1)
-        await message.answer("Натискайте на відповіді ,які вважайте правильними")
-        txt = ques(cur_ques)
-        await message.answer(txt,reply_markup=keyb)
+        await state.update_data(score=0)
+        await message.answer(f"1 Питання:")
+        await message.answer(questions_start[1]["question"], reply_markup=dynamic_reply_kb(questions_start[1]["options"]))
+        await state.set_state(ST.q2)
     else:
         await state.set_state(Form.phone)
         await message.answer("Введіть коректний номер")
+
+@R.message(Command("learn"))
+async def learn(message: types.Message, state: FSMContext):
+    await message.answer(f"Ось тобі корисне відео:")
+    await message.answer(f"{random.choice(links)}")
+    await message.answer(f"Лови нове слово:")
+    word = str(random.choice(english_words))
+    await message.answer(f"{word}")
+    await message.answer(f"Переклад:{eng(word)}")
+    
+
 
 @R.message(Command("howdoisay"))
 async def translate(message: types.Message, state: FSMContext):
@@ -231,182 +289,18 @@ async def translated_ukr(message: types.Message, state: FSMContext):
     await state.clear()
     await message.answer(f"Ось перекладена фраза/слово: {answer}")
 
-@R.message(ST.q1)
-async def question1(message: types.Message, state: FSMContext):
-    global cur_ques
-    global correct_answers
-    user_ans = message.text
-    answer = check_ans(cur_ques,user_ans)
-    if answer == True:
-        correct_answers+=1
-        cur_ques += 1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("+")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q2)
-    else:
-        cur_ques += 1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("-")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q2)
 
-@R.message(ST.q2)
-async def question1(message: types.Message, state: FSMContext):
-    global cur_ques
-    global correct_answers
-    user_ans = message.text
-    answer = check_ans(cur_ques,user_ans)
-    if answer == True:
-        cur_ques += 1
-        correct_answers+=1
-        print(cur_ques)
-        keyb = gen_keyb(cur_ques)
-        await message.answer("+")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q3)
-    else:
-        cur_ques += 1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("-")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q3)
 
-@R.message(ST.q3)
-async def question1(message: types.Message, state: FSMContext):
-    global cur_ques
-    global correct_answers
-    user_ans = message.text
-    answer = check_ans(cur_ques,user_ans)
-    if answer == True:
-        cur_ques += 1
-        correct_answers+=1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("+")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q4)
-    else:
-        cur_ques += 1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("-")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q4)
+@R.message(TC.ch)
+async def main_handler(message: types.Message,state: TC):
+    user_ans = message.text #A1
+    if user_ans in eng_levels:
+        await message.answer(f"Тест для рівня {user_ans}")
+        await message.answer(f"1 Питання:")
+        value = user_ans.lower() #a1
+        if value in LVLS:
+            await message.answer(LVLS[value][1]["question"], reply_markup=dynamic_reply_kb(LVLS[value][1]["options"]))
+        await state.set_state(AT.q2)
 
-@R.message(ST.q4)
-async def question1(message: types.Message, state: FSMContext):
-    global cur_ques
-    global correct_answers
-    user_ans = message.text
-    answer = check_ans(cur_ques,user_ans)
-    if answer == True:
-        cur_ques += 1
-        correct_answers+=1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("+")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q5)
-    else:
-        cur_ques += 1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("-")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q5)
+   
     
-@R.message(ST.q5)
-async def question1(message: types.Message, state: FSMContext):
-    global cur_ques
-    global correct_answers
-    user_ans = message.text
-    answer = check_ans(cur_ques,user_ans)
-    if answer == True:
-        cur_ques += 1
-        correct_answers+=1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("+")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q6)
-    else:
-        cur_ques += 1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("-")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q6)
-
-@R.message(ST.q6)
-async def question1(message: types.Message, state: FSMContext):
-    global cur_ques
-    global correct_answers
-    user_ans = message.text
-    answer = check_ans(cur_ques,user_ans)
-    if answer == True:
-        cur_ques += 1
-        correct_answers+=1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("+")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q7)
-    else:
-        cur_ques += 1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("-")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q7)
-
-@R.message(ST.q7)
-async def question1(message: types.Message, state: FSMContext):
-    global cur_ques
-    user_ans = message.text
-    answer = check_ans(cur_ques,user_ans)
-    if answer == True:
-        cur_ques += 1
-        correct_answers+=1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("+")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q8)
-    else:
-        cur_ques += 1
-        keyb = gen_keyb(cur_ques)
-        await message.answer("-")
-        txt = ques(cur_ques)
-        await message.answer(f"{txt}",reply_markup=keyb)
-        await state.set_state(ST.q8)
-
-@R.message(ST.q8)
-async def question1(message: types.Message, state: FSMContext):
-    global cur_ques
-    user_ans = message.text
-    answer = check_ans(cur_ques,user_ans)
-    telegram_user_id = message.from_user.id
-    if answer == True:
-        correct_answers=0
-        correct_answers+=1
-        await state.clear()
-        await message.answer("+")
-        lvlok = lvl(correct_answers)
-        db_users.update_lvl(telegram_user_id=telegram_user_id, lvl=lvlok)
-        await message.answer(f"Ти набрав {correct_answers} вірних відповідей")
-        await message.answer(f"Нашим дуже крутим аналізатором було вирішено ,що у тебе {lvlok}",reply_markup=types.ReplyKeyboardRemove())
-        correct_answers=0
-
-    else:
-        db_users.update_lvl(telegram_user_id=telegram_user_id, lvl=lvlok)
-        await state.clear()
-        await message.answer("-")
-        await message.answer(f"Ти набрав {correct_answers} вірних відповідей")
-        await message.answer(f"Нашим дуже крутим аналізатором було вирішено ,що у тебе {lvlok}",reply_markup=types.ReplyKeyboardRemove())
-        correct_answers=0
-        correct_answers=0
