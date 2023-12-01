@@ -59,11 +59,13 @@ def question_generator(prev_number,curr_number, state_name, next_state,test_name
         if message.text == right_ans:
             await state.update_data(
                 {
-                    "score":our_data['score'] + test_name[prev_number]["point"]
+                    "score":our_data['score'] + test_name[prev_number]["point"],
+                    "name":test_name[3]['answer']
                 }
             
             )
         our_data = await state.get_data()
+        print(our_data)
         print(f"1111111111111:{our_data['score']}")
         await message.answer(f"Відповідь зарахована")
         await message.answer(f"Ти відповів:{message.text}")
@@ -97,11 +99,12 @@ def init_questions():
 async def final_score(message: types.Message, state: FSMContext):
     global user_level
     our_data = await state.get_data()
-    print(our_data)
     right_ans = questions_start[6]["answer"]
     if message.text == right_ans:
         await message.answer(f"Ти відповів:{message.text}")
         await message.answer(f"Правильна відповідь:{right_ans}")
+        our_data['score'] += 1
+    print(our_data)
     score = our_data['score']
     await message.answer("Давай підрахуємо твої результати",reply_markup=types.ReplyKeyboardRemove())
     eng_levels.insert(0,"A0")
@@ -111,7 +114,6 @@ async def final_score(message: types.Message, state: FSMContext):
             user_level = eng_levels[x]
         await state.clear()
     eng_levels.pop(0)
-    our_data = await state.get_data()
     await state.set_state(TC.ch)
     await state.update_data(score=0)
     await message.answer("Для інформації про бота /info")
@@ -122,6 +124,11 @@ async def final_score(message: types.Message, state: FSMContext):
 async def final_score(message: types.Message, state: FSMContext):
     our_data = await state.get_data()
     print(our_data)
+    right_ans = our_data["name"]
+    if message.text == right_ans:
+        await message.answer(f"Ти відповів:{message.text}")
+        await message.answer(f"Правильна відповідь:{right_ans}")
+        our_data['score'] += 1
     score = our_data['score']
     await message.answer("Давай підрахуємо твої результати",reply_markup=types.ReplyKeyboardRemove())
     await message.answer(f"Ти набрав {score} з 3")
