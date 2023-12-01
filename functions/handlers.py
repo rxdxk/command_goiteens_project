@@ -10,8 +10,8 @@ from db_api.db_users import *
 from loader import dp, R, db_users
 from .learn import *
 import random
-R = Router()
-dp.include_router(R)
+from .states import *
+
 
 class Form(StatesGroup):
     name = State()
@@ -25,28 +25,11 @@ class transl(StatesGroup):
     eng_answer = State()
     ukr_answer = State()
 
-class TC(StatesGroup):
-    ch = State()
 
-class ST(StatesGroup):
-    q1 = State()
-    q2 = State()
-    q3 = State()
-    q4 = State()
-    q5 = State()
-    q6 = State()
-    q7 = State()
-    final = State()
-
-class AT(StatesGroup):
-    q1 = State()
-    q2 = State()
-    q3 = State()
-    final = State()
 
 
         
-LVLS = {"a1":questions_a1,
+lvls = {"a1":questions_a1,
         "a2":questions_a2,
         "b1":questions_b1,
         "b2":questions_b2,
@@ -55,6 +38,8 @@ LVLS = {"a1":questions_a1,
         
 
 eng_levels = ["A1","A2","B1","B2","C1","C2"]
+
+
 
 def dynamic_reply_kb(options: list):
     return types.ReplyKeyboardMarkup(
@@ -69,15 +54,17 @@ def question_generator(prev_number,curr_number, state_name, next_state,test_name
     @dp.message(state_name, F.text.in_(test_name[prev_number]['options']))
     async def questiongen(message: types.Message, state: FSMContext):
         our_data = await state.get_data()
+        print(message.text)
         right_ans = test_name[prev_number]["answer"]
         if message.text == right_ans:
             await state.update_data(
                 {
                     "score":our_data['score'] + test_name[prev_number]["point"]
                 }
-
+            
             )
-        
+        our_data = await state.get_data()
+        print(f"1111111111111:{our_data['score']}")
         await message.answer(f"Відповідь зарахована")
         await message.answer(f"Ти відповів:{message.text}")
         await message.answer(f"Правильна відповідь:{right_ans}")
@@ -92,7 +79,7 @@ def init_questions():
     question_generator(3, 4, ST.q4, ST.q5,questions_start)
     question_generator(4, 5, ST.q5, ST.q6,questions_start)
     question_generator(5, 6, ST.q6, ST.final,questions_start)
-    for x in LVLS.values():
+    for x in lvls.values():
         question_generator(1,2, AT.q2, AT.q3,x)
         question_generator(2,3, AT.q3, AT.final,x)
 
@@ -106,27 +93,35 @@ def init_questions():
 
 
 
-@R.message(ST.final)
+@dp.message(ST.final)
 async def final_score(message: types.Message, state: FSMContext):
     global user_level
     our_data = await state.get_data()
+    print(our_data)
+    right_ans = questions_start[6]["answer"]
+    if message.text == right_ans:
+        await message.answer(f"Ти відповів:{message.text}")
+        await message.answer(f"Правильна відповідь:{right_ans}")
     score = our_data['score']
     await message.answer("Давай підрахуємо твої результати",reply_markup=types.ReplyKeyboardRemove())
-    eng_levels = ["A0","A1","A2","B1","B2","C1","C2"]
+    eng_levels.insert(0,"A0")
     for x in range(len(eng_levels)):
         if score == x:
             await message.answer(eng_levels[x])
             user_level = eng_levels[x]
         await state.clear()
+    eng_levels.pop(0)
+    our_data = await state.get_data()
     await state.set_state(TC.ch)
-    eng_levels = ["A1","A2","B1","B2","C1","C2"]
     await state.update_data(score=0)
+    await message.answer("Для інформації про бота /info")
     await message.answer("Ось бібліотека тестів",reply_markup=dynamic_reply_kb(eng_levels))
 
 
-@R.message(AT.final)
+@dp.message(AT.final)
 async def final_score(message: types.Message, state: FSMContext):
     our_data = await state.get_data()
+    print(our_data)
     score = our_data['score']
     await message.answer("Давай підрахуємо твої результати",reply_markup=types.ReplyKeyboardRemove())
     await message.answer(f"Ти набрав {score} з 3")
@@ -155,19 +150,23 @@ English Level: {user_info[6]}
     </b>
     """
 
-@R.message(Command("info"))
+@dp.message(Command("info"))
 async def info_func(message: types.Message):
     await message.answer('''<b>Що може цей бот?</b>
     <i>-Визначити твій рівень англійської
     -Допомогти прокачати свої знання
     -Давати рекомендації щодо вивчення нових слів та правил
     -Давати завдання
-    -Допомогти тобі провести час із користю</i>
+    -Допомогти тобі провести час із користю
+    -Для переводу /howdoisay
+    -Для видалення профілю /deleteme
+    -Для прогресу /myprogress
+    -Для навчання /learn</i>
                         ''')
 
 
 
-@R.message(Command("myprogress"))
+@dp.message(Command("myprogress"))
 async def progres_func(message: types.Message):
     telegram_user_id = message.from_user.id
     user_info = db_users.get_user_by_telegram_id(telegram_user_id)
@@ -176,19 +175,19 @@ async def progres_func(message: types.Message):
     else:
         await message.reply(f"User with your ID: <b>{telegram_user_id}</b> is not registred")
 
-@R.message(Command("deleteme"))
+@dp.message(Command("deleteme"))
 async def delete_func(message: types.Message):
     telegram_user_id = message.from_user.id
     db_users.delete_user(telegram_user_id)
     await message.answer("Ваш аккаунт видалено")
 
-@R.message(Command("start"))
+@dp.message(Command("start"))
 async def start_func(message: types.Message, state: FSMContext):
     await message.answer("Вітаємо тебе у боті для вивчення англіської🇬🇧")
     await message.answer("Щоб почати напиши мені своє ім'я")
     await state.set_state(Form.name)
 
-@R.message(Form.name)
+@dp.message(Form.name)
 async def name_func(message: types.Message, state: FSMContext):
     name = message.text
     if len(name) < 12  and len(name) >= 3 and name.isalpha():
@@ -200,7 +199,7 @@ async def name_func(message: types.Message, state: FSMContext):
         await state.set_state(Form.name)
         await message.answer("Введіть коректне ім'я")
 
-@R.message(Form.surname)
+@dp.message(Form.surname)
 async def surname_func(message: types.Message, state: FSMContext):
     surname = message.text
 
@@ -213,7 +212,7 @@ async def surname_func(message: types.Message, state: FSMContext):
         await state.set_state(Form.surname)
         await message.answer(f"Введіть коректне прізвище")
 
-@R.message(Form.phone)
+@dp.message(Form.phone)
 async def phone_func(message: types.Message, state: FSMContext):
     phone = message.text
     global cur_ques
@@ -250,7 +249,7 @@ async def phone_func(message: types.Message, state: FSMContext):
         await state.set_state(Form.phone)
         await message.answer("Введіть коректний номер")
 
-@R.message(Command("learn"))
+@dp.message(Command("learn"))
 async def learn(message: types.Message, state: FSMContext):
     await message.answer(f"Ось тобі корисне відео:")
     await message.answer(f"{random.choice(links)}")
@@ -259,14 +258,19 @@ async def learn(message: types.Message, state: FSMContext):
     await message.answer(f"{word}")
     await message.answer(f"Переклад:{eng(word)}")
     
+@dp.message(Command("test"))
+async def translate(message: types.Message, state: FSMContext):
+    await message.answer("Почнемо проходити тести !")
+    await state.set_state(TC.ch)
+    await state.update_data(score=0)
+    await message.answer("Ось бібліотека тестів",reply_markup=dynamic_reply_kb(eng_levels))
 
-
-@R.message(Command("howdoisay"))
+@dp.message(Command("howdoisay"))
 async def translate(message: types.Message, state: FSMContext):
     await message.answer("З якої мови бажаєш перкласти?",reply_markup=lang_kb)
     await state.set_state(transl.choose)
 
-@R.message(transl.choose)
+@dp.message(transl.choose)
 async def choose(message: types.Message, state: FSMContext):
     if message.text=='З англійської':
         await message.answer("Напиши слово чи фразу англійською мовою яку хочеш перекласти", reply_markup=types.ReplyKeyboardRemove())
@@ -275,31 +279,32 @@ async def choose(message: types.Message, state: FSMContext):
         await message.answer("Напиши слово чи фразу українською мовою яку хочеш перекласти", reply_markup=types.ReplyKeyboardRemove())
         await state.set_state(transl.ukr_answer)
         
-@R.message(transl.eng_answer)
+@dp.message(transl.eng_answer)
 async def translated_eng(message: types.Message, state: FSMContext):
-    text = str(message.text)
+    text = message.text
     answer = eng(text)
     await state.clear()
     await message.answer(f"Ось перекладена фраза/слово: {answer}")
+
     
-@R.message(transl.ukr_answer)
+@dp.message(transl.ukr_answer)
 async def translated_ukr(message: types.Message, state: FSMContext):
-    text = str(message.text)
+    text = message.text
     answer = ukr(text)
     await state.clear()
     await message.answer(f"Ось перекладена фраза/слово: {answer}")
 
 
 
-@R.message(TC.ch)
+@dp.message(TC.ch)
 async def main_handler(message: types.Message,state: TC):
     user_ans = message.text #A1
     if user_ans in eng_levels:
         await message.answer(f"Тест для рівня {user_ans}")
         await message.answer(f"1 Питання:")
         value = user_ans.lower() #a1
-        if value in LVLS:
-            await message.answer(LVLS[value][1]["question"], reply_markup=dynamic_reply_kb(LVLS[value][1]["options"]))
+        if value in lvls:
+            await message.answer(lvls[value][1]["question"], reply_markup=dynamic_reply_kb(lvls[value][1]["options"]))
         await state.set_state(AT.q2)
 
    

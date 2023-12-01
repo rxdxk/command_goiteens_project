@@ -70,6 +70,7 @@ questions_a1 = {
         ],
         "answer": "Hello",
         "point": 1
+      
     },
     2: {
         "question": "Як ви сказали б 'Я хочу каву', використовуючи слова на англійській?",
@@ -80,6 +81,7 @@ questions_a1 = {
         ],
         "answer": "I want coffee",
         "point": 1
+      
     },
     3: {
         "question": "Як правильно написати слово 'день' на англійській мові?",
@@ -90,6 +92,7 @@ questions_a1 = {
         ],
         "answer": "Day",
         "point": 1
+    
     }
 }
 
@@ -111,6 +114,7 @@ questions_a2 = {
         "options": ["go", "goes", "going"],
         "answer": "go",
         "point": 1
+
     }
 }
 
@@ -133,6 +137,7 @@ questions_b1 = {
         "options": ["better", "gooder", "best"],
         "answer": "better",
         "point": 1
+   
     }
 }
 
@@ -155,6 +160,7 @@ questions_b2 = {
         "options": ["drunk", "drinked", "drank"],
         "answer": "drunk",
         "point": 1
+
     }
 }
 
@@ -201,5 +207,6 @@ questions_c2 = {
         "options": ["Running in the park is enjoyable.", "To run in the park is enjoyable."],
         "answer": "Running in the park is enjoyable.",
         "point": 1
+
     }
 }
