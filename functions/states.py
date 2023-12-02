@@ -19,3 +19,8 @@ class AT(StatesGroup):
     q3 = State()
     final = State()
     
+class update(StatesGroup):
+    name=State()
+    surname=State()
+    phone=State()
+    finish=State()

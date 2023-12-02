@@ -120,12 +120,11 @@ async def final_score(message: types.Message, state: FSMContext):
 def format_user_info_string(user_info: tuple):
         return f"""
     <b>
-Username: {user_info[1]}
-First Name: {user_info[2]}
-Last Name: {user_info[3]}
-Telegram ID: {user_info[4]}
-Phone Number: +380{user_info[5]}
-English Level: {user_info[6]}
+First Name: {user_info[1]}
+Last Name: {user_info[2]}
+Telegram ID: {user_info[3]}
+Phone Number: +380{user_info[4]}
+English Level: {user_info[5]}
     </b>
     """
 
@@ -147,6 +146,7 @@ async def info_func(message: types.Message):
 async def progres_func(message: types.Message):
     telegram_user_id = message.from_user.id
     user_info = db_users.get_user_by_telegram_id(telegram_user_id)
+    print(user_info)
     if user_info:
         await message.reply(format_user_info_string(user_info))
     else:
@@ -157,6 +157,60 @@ async def delete_func(message: types.Message):
     telegram_user_id = message.from_user.id
     db_users.delete_user(telegram_user_id)
     await message.answer("Ваш аккаунт видалено")
+
+@dp.message(Command("updateme"))
+async def delete_func(message: types.Message, state: FSMContext):
+    await message.answer("Давайте оновимо ваші данні, вкажіть нове ім'я")
+    await state.set_state(update.name)
+
+@dp.message(update.name)
+async def surname_func(message: types.Message, state: FSMContext):
+    name = message.text
+    if len(name) < 12  and len(name) >= 3 and name.isalpha():
+        await message.answer(f"Hello {name}")
+        await state.update_data(name=name)
+        await state.set_state(update.surname)
+        await message.answer(f"{name}, введи своє прізвище")
+    else:
+        await state.set_state(update.name)
+        await message.answer("Введіть коректне ім'я")
+    
+@dp.message(update.surname)
+async def surname_func(message: types.Message, state: FSMContext):
+    surname = message.text
+
+    if len(surname) < 20  and surname.isalpha():
+        await state.update_data(surname=surname)
+        await state.set_state(update.phone)
+        await message.answer(f"Тепер введи свій номер телефону ,починаючи з +38")
+        
+    else:
+        await state.set_state(update.surname)
+        await message.answer(f"Введіть коректне прізвище")
+
+@dp.message(update.phone)
+async def phone_func(message: types.Message, state: FSMContext):
+    phone = message.text
+    telegram_user_id = message.from_user.id
+    user_info = db_users.get_user_by_telegram_id(telegram_user_id)
+    if len(phone) == 10 and phone.isnumeric():
+        state_data=await state.get_data()
+        surname=state_data["surname"]
+        name=state_data["name"]
+        db_users.update_user(
+            name=name,
+            surname=surname,
+            lvl=None,
+            phone=int(phone),
+            telegram_user_id=telegram_user_id
+        )                
+        await message.answer("Оновлення профілю завершено!")
+        await state.clear()
+    else:
+        await state.set_state(Form.phone)
+        await message.answer("Введіть коректний номер")
+
+
 
 @dp.message(Command("start"))
 async def start_func(message: types.Message, state: FSMContext):
@@ -193,55 +247,28 @@ async def surname_func(message: types.Message, state: FSMContext):
 async def phone_func(message: types.Message, state: FSMContext):
     phone = message.text
     telegram_user_id = message.from_user.id
-    user_info = db_users.get_user_by_telegram_id(telegram_user_id)
-    if user_info:
-        if len(phone) == 10 and phone.isnumeric():
-            state_data=await state.get_data()
-            name=state_data["name"]
-            surname=state_data["surname"]
-            db_users.update_user(
-                telegram_user_id=message.from_user.id,
-                username=message.from_user.username,
-                name=name,
-                surname=surname,
-                lvl=None,
-                phone=phone
-            )                
-            await message.answer("Реєстрацію завершено!")
-            await message.answer("Ти вже почав свій рух і скоро ти будеш говорити англіською як він:")
-            await message.answer("А зараз ми пропонуємо вам пройти короткий тест на ваш рівень англійської мови")
-            await state.update_data(score=0)
-            await message.answer(f"1 Питання:")
-            await message.answer(questions_start[1]["question"], reply_markup=dynamic_reply_kb(questions_start[1]["options"]))
-            await state.set_state(ST.q2)
-        else:
-            await state.set_state(Form.phone)
-            await message.answer("Введіть коректний номер")
-    else:   
-            if len(phone) == 10 and phone.isnumeric():
-                await state.update_data(phone=phone)
-                state_data=await state.get_data()
-                name=state_data["name"]
-                surname=state_data["surname"]
-                print(phone)
-                await db_users.register_user(
-                    username=message.from_user.username,
-                    name=name,
-                    surname=surname,
-                    lvl=None,
-                    phone=phone,
-                    telegram_user_id=message.from_user.id
-                )
-                await message.answer("Реєстрацію завершено!")
-                await message.answer("Ти вже почав свій рух і скоро ти будеш говорити англіською як він:")
-                await message.answer("А зараз ми пропонуємо вам пройти короткий тест на ваш рівень англійської мови")
-                await state.update_data(score=0)
-                await message.answer(f"1 Питання:")
-                await message.answer(questions_start[1]["question"], reply_markup=dynamic_reply_kb(questions_start[1]["options"]))
-                await state.set_state(ST.q2)
-            else:
-                await state.set_state(Form.phone)
-                await message.answer("Введіть коректний номер")
+    if len(phone) == 10 and phone.isnumeric():
+        await state.update_data(phone=phone)
+        state_data=await state.get_data()
+        name=state_data["name"]
+        surname=state_data["surname"]
+        db_users.register_user(
+            name=name,
+            surname=surname,
+            telegram_user_id=telegram_user_id,
+            phone=phone,
+            lvl=None
+        )
+        await message.answer("Реєстрацію завершено!")
+        await message.answer("Ти вже почав свій рух і скоро ти будеш говорити англіською як він:")
+        await message.answer("А зараз ми пропонуємо вам пройти короткий тест на ваш рівень англійської мови")
+        await state.update_data(score=0)
+        await message.answer(f"1 Питання:")
+        await message.answer(questions_start[1]["question"], reply_markup=dynamic_reply_kb(questions_start[1]["options"]))
+        await state.set_state(ST.q2)
+    else:
+        await state.set_state(Form.phone)
+        await message.answer("Введіть коректний номер")
 
 @dp.message(Command("learn"))
 async def learn(message: types.Message):
